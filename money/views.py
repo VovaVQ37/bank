@@ -1,37 +1,50 @@
 from django.shortcuts import render, get_object_or_404
-from django.forms import modelformset_factory
 from django.http import HttpResponseRedirect
-from .models import Account, Transaction
+from django.contrib.auth import authenticate, login
+from .models import Account
 from .forms import TransactionForm
 
 
 def send(request):
-    TransactionFormSet = modelformset_factory(Transaction, form=TransactionForm)
+    if not request.user.is_authenticated:
+        return render(request, 'money/auth.html', {})
     if request.method == 'POST':
-        formset = TransactionFormSet(request.POST, request.FILES)
-        if formset.is_valid():
-            forms = formset.save(commit=False)
-            for i, form in enumerate(forms):
-                print(request.POST)
-                print('sender=', request.POST.get('form-' + str(i) + '-sender'))
-                sender = get_object_or_404(Account, pk=request.POST.get('form-' + str(i) + '-sender'))
-                receiver = get_object_or_404(Account, pk=request.POST.get('form-' + str(i) + '-receiver'))
-                successful = True
-                if sender.total >= int(request.POST.get('form-' + str(i) + '-total')):
-                    sender.total -= int(request.POST.get('form-' + str(i) + '-total'))
-                    receiver.total += int(request.POST.get('form-' + str(i) + '-total'))
-                    sender.save()
-                    receiver.save()
-                else:
-                    successful = False
-                form.successful = successful
-                form.save()
+        form = TransactionForm(request.POST)
+        if form.is_valid():
+            print(request.POST)
+            print('sender=', request.POST.get('sender'))
+            sender = get_object_or_404(Account, pk=request.POST.get('sender'))
+            receiver = get_object_or_404(Account, pk=request.POST.get('receiver'))
+            successful = True
+            if sender.total >= int(request.POST.get('total')):
+                sender.total -= int(request.POST.get('total'))
+                receiver.total += int(request.POST.get('total'))
+                sender.save()
+                receiver.save()
+            else:
+                successful = False
+            form.successful = successful
+            form.save()
             return HttpResponseRedirect('/success/')
     else:
-        formset = TransactionFormSet()
-    print(formset)
-    return render(request, 'money/send.html', {'formset': formset})
+        form = TransactionForm()
+    return render(request, 'money/send.html', {'form': form})
 
 
 def success(request):
     return render(request, 'money/success.html', {})
+
+
+def log_in(request):
+    if request.method == 'POST':
+        username = request.POST['username']
+        password = request.POST['password']
+        user = authenticate(request, username=username, password=password)
+        if user is not None:
+            login(request, user)
+            return HttpResponseRedirect('/send/')
+        else:
+            message = "Wrong login and/or password"
+            return HttpResponseRedirect('/auth/', kwargs={'message': message})
+
+    return render(request, 'money/auth.html', {'message': ''})

@@ -4,6 +4,7 @@ from .models import Transaction
 
 
 class TransactionForm(ModelForm):
+
     class Meta:
         model = Transaction
         fields = (
@@ -13,4 +14,6 @@ class TransactionForm(ModelForm):
             'date_time',
             'successful',
         )
-        widgets = {'successful': HiddenInput()}
+        widgets = {
+            'successful': HiddenInput(),
+        }
